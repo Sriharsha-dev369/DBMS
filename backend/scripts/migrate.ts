@@ -14,12 +14,14 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
+// Migrations always run as the admin user (postgres), not the app user.
+// The app user (saasledger_app) is subject to RLS and cannot run DDL.
 const pool = new Pool({
-  host:     process.env.DB_HOST     || 'localhost',
+  host:     process.env.DB_HOST       || 'localhost',
   port:     parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME     || 'saasledger',
-  user:     process.env.DB_USER     || 'postgres',
-  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME       || 'saasledger',
+  user:     process.env.DB_ADMIN_USER || 'postgres',
+  password: process.env.DB_ADMIN_PASSWORD || process.env.DB_PASSWORD || '',
 });
 
 const MIGRATIONS_DIR = path.resolve(__dirname, '../../db/migrations');
