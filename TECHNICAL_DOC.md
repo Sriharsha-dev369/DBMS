@@ -103,7 +103,7 @@ SaaS billing engines must:
 
 ## 5. Database Schema
 
-> **Status: Finalized v1** — Ready for migration files. Updated 2026-04-02.
+> **Status: Finalized v1** — Migrations complete. Updated 2026-04-06.
 
 ### 5.1 Entity Relationship Overview
 
@@ -360,26 +360,27 @@ CREATE INDEX idx_audit_log_tenant_time  ON audit_log(tenant_id, changed_at DESC)
 
 ## 7. API Endpoints (Draft)
 
-### Auth
-- `POST /api/auth/register` — tenant signup
-- `POST /api/auth/login` — tenant login → JWT
+### Auth ✓
+- `POST /api/auth/register` — tenant signup ✓
+- `POST /api/auth/login` — tenant login → JWT ✓
 - `POST /api/auth/logout`
 
 ### Tenant
 - `GET  /api/tenant/me` — current tenant profile
 - `PUT  /api/tenant/me` — update settings
 
-### Plans
-- `GET  /api/plans` — list plans
-- `POST /api/plans` — create plan
-- `PUT  /api/plans/:id` — update plan
-- `DELETE /api/plans/:id` — deactivate plan
+### Plans ✓
+- `GET    /api/plans` — list plans (query: `?is_active=true|false`) ✓
+- `POST   /api/plans` — create plan ✓
+- `PATCH  /api/plans/:id` — update plan (soft-mutable fields only, billing_model locked) ✓
+- `DELETE /api/plans/:id` — deactivate plan (soft delete: is_active=false) ✓
 
-### Customers
-- `GET  /api/customers` — list (paginated)
-- `POST /api/customers` — create
-- `GET  /api/customers/:id` — detail + current subscription
-- `PUT  /api/customers/:id` — update
+### Customers ✓
+- `GET    /api/customers` — list paginated (query: `?limit&offset&status`) ✓
+- `POST   /api/customers` — create ✓
+- `GET    /api/customers/:id` — detail + current subscription
+- `PATCH  /api/customers/:id` — update ✓
+- `DELETE /api/customers/:id` — soft delete (status=inactive) ✓
 
 ### Subscriptions
 - `POST /api/subscriptions` — create (assigns plan to customer)
