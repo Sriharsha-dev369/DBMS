@@ -102,6 +102,25 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+// GET /api/customers/:id
+router.get('/:id', async (req: Request, res: Response): Promise<void> => {
+  const { dbClient } = req as AuthRequest;
+  try {
+    const result = await dbClient.query(
+      `SELECT id, email, name, status, metadata, created_at, updated_at
+       FROM   customers WHERE id = $1`,
+      [req.params.id],
+    );
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: 'Customer not found' });
+      return;
+    }
+    res.json({ customer: result.rows[0] });
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch customer' });
+  }
+});
+
 // PATCH /api/customers/:id
 // Updates mutable fields on a customer.
 router.patch('/:id', async (req: Request, res: Response): Promise<void> => {

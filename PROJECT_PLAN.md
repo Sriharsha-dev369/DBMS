@@ -26,6 +26,7 @@
 **Goal:** Working local development environment. Nothing blocking. Can run migrations.
 
 ### Tasks
+
 - [ ] Initialize backend: `npm init`, TypeScript config, Express setup
 - [ ] Initialize frontend: `create-react-app` or Vite with TypeScript
 - [ ] Set up PostgreSQL locally (Docker Compose preferred)
@@ -35,6 +36,7 @@
 - [ ] Git repo initialized with `.gitignore`
 
 ### Deliverable
+
 `docker-compose up` → Postgres running. `npm run migrate` → empty schema created. `npm run dev` → Express server responds on port 3000.
 
 ---
@@ -44,6 +46,7 @@
 **Goal:** Database schema for tenants, plans, customers. RLS working. Can seed test data.
 
 ### Tasks
+
 - [ ] Migration 001: `tenants` table + indexes
 - [ ] Migration 002: `plans` + `plan_features` tables
 - [ ] Migration 003: `customers` table + indexes
@@ -56,6 +59,7 @@
 - [ ] Verify RLS works: login as Tenant A, cannot see Tenant B's customers
 
 ### DBMS Concepts Introduced
+
 - 3NF schema design
 - FK constraints with ON DELETE behaviors
 - CHECK constraints (status enums, price validations)
@@ -65,6 +69,7 @@
 - BEFORE UPDATE trigger for `updated_at`
 
 ### Deliverable
+
 API running. Two tenants fully isolated. Plans and customers manageable via Postman/API client. Data visible in pgAdmin with RLS clearly working.
 
 ---
@@ -74,6 +79,7 @@ API running. Two tenants fully isolated. Plans and customers manageable via Post
 **Goal:** Customers can be subscribed to plans. Subscription state machine works correctly.
 
 ### Tasks
+
 - [ ] Migration 006: `subscriptions` table with all constraints
 - [ ] Migration 007: Partial unique index (one active sub per customer)
 - [ ] Partial index: `WHERE status = 'active'` on subscriptions
@@ -86,6 +92,7 @@ API running. Two tenants fully isolated. Plans and customers manageable via Post
 - [ ] Seed: subscriptions in various states for testing
 
 ### DBMS Concepts Introduced
+
 - Partial indexes (active subscriptions only)
 - State machine via CHECK constraint
 - PL/pgSQL scalar function
@@ -93,6 +100,7 @@ API running. Two tenants fully isolated. Plans and customers manageable via Post
 - READ COMMITTED vs REPEATABLE READ for subscription reads
 
 ### Deliverable
+
 Can create, upgrade, pause, cancel subscriptions. State transitions enforced at DB level (invalid transitions rejected by CHECK). Proration amount calculated correctly.
 
 ---
@@ -102,6 +110,7 @@ Can create, upgrade, pause, cancel subscriptions. State transitions enforced at 
 **Goal:** Invoices generated correctly. Payments recorded. Financial integrity maintained.
 
 ### Tasks
+
 - [ ] Migration 008: `invoices` table with idempotency key
 - [ ] Migration 009: `invoice_line_items` table
 - [ ] Migration 010: `payments` table
@@ -115,6 +124,7 @@ Can create, upgrade, pause, cancel subscriptions. State transitions enforced at 
 - [ ] Demonstrate: run billing job twice for same subscription → idempotency prevents duplicate invoice
 
 ### DBMS Concepts Introduced
+
 - SERIALIZABLE transaction (billing job)
 - Idempotency key (UNIQUE constraint prevents double invoice)
 - Covering index (invoice list query)
@@ -124,6 +134,7 @@ Can create, upgrade, pause, cancel subscriptions. State transitions enforced at 
 - EXPLAIN ANALYZE: show index usage on invoice queries
 
 ### Deliverable
+
 Run billing cron → invoices generated. Post payment → invoice marked paid. Running cron twice → no duplicate invoices. Full audit log populated. EXPLAIN ANALYZE showing index scans.
 
 ---
@@ -133,6 +144,7 @@ Run billing cron → invoices generated. Post payment → invoice marked paid. R
 **Goal:** Demonstrate depth. Isolation levels, query optimization, materialized views.
 
 ### Tasks
+
 - [ ] Isolation level demo script: phantom read scenario + SERIALIZABLE fix (with documented output)
 - [ ] Materialized view: `mrr_by_tenant` — MRR calculation
 - [ ] Materialized view: refresh strategy + CONCURRENTLY
@@ -144,6 +156,7 @@ Run billing cron → invoices generated. Post payment → invoice marked paid. R
 - [ ] Document: index strategy with EXPLAIN output for each index
 
 ### DBMS Concepts Introduced
+
 - Materialized views with CONCURRENTLY refresh
 - Isolation level comparison (written demonstration)
 - EXPLAIN ANALYZE deep dive
@@ -152,6 +165,7 @@ Run billing cron → invoices generated. Post payment → invoice marked paid. R
 - Advisory locks (dunning job coordination)
 
 ### Deliverable
+
 All reports working from materialized views. Written document showing phantom read demo. EXPLAIN ANALYZE output saved for at least 3 queries. Dunning flow complete.
 
 ---
@@ -161,6 +175,7 @@ All reports working from materialized views. Written document showing phantom re
 **Goal:** Visual interface that makes the database work visible and impressive.
 
 ### Pages
+
 - [ ] Auth: Login / Register (tenant signup)
 - [ ] Dashboard: MRR widget, active subscriptions count, recent invoices, churn rate
 - [ ] Customers: Table with search, subscription status badge
@@ -171,12 +186,14 @@ All reports working from materialized views. Written document showing phantom re
 - [ ] Reports: Charts for MRR trend, revenue by plan, churn
 
 ### Tech Notes
+
 - React + TypeScript + React Query (for data fetching)
 - Tailwind CSS or shadcn/ui for components
 - Chart library: Recharts or Chart.js
 - No complex state management needed — React Query handles it
 
 ### Deliverable
+
 Full UI working against real backend. Dashboard shows live data. Can create customer → subscribe → generate invoice → record payment entirely through UI.
 
 ---
@@ -186,6 +203,7 @@ Full UI working against real backend. Dashboard shows live data. Can create cust
 **Goal:** Presentation-ready project.
 
 ### Tasks
+
 - [ ] Realistic seed data (demo tenant with 50+ customers, 6 months of invoices)
 - [ ] Error handling: proper HTTP status codes, typed error responses
 - [ ] Input validation: Zod schemas on all API inputs
@@ -213,14 +231,14 @@ These are only if Phase 1-4 are completely done and time remains:
 
 ## Decision Log
 
-| Date | Decision | Rationale |
-|---|---|---|
-| 2026-04-02 | Shared schema multi-tenancy | Best for demonstrating RLS and indexing depth |
-| 2026-04-02 | Raw SQL over ORM | Maximize visibility of DBMS concepts |
-| 2026-04-02 | UUID PKs everywhere | Multi-tenant safety, avoids sequential enumeration |
-| 2026-04-02 | NUMERIC(12,2) for money | Never FLOAT for currency |
-| 2026-04-02 | PostgreSQL as RDBMS | RLS, JSONB, partial indexes, PL/pgSQL |
-| 2026-04-02 | TypeScript full stack | Type safety across API boundary |
+| Date       | Decision                    | Rationale                                          |
+| ---------- | --------------------------- | -------------------------------------------------- |
+| 2026-04-02 | Shared schema multi-tenancy | Best for demonstrating RLS and indexing depth      |
+| 2026-04-02 | Raw SQL over ORM            | Maximize visibility of DBMS concepts               |
+| 2026-04-02 | UUID PKs everywhere         | Multi-tenant safety, avoids sequential enumeration |
+| 2026-04-02 | NUMERIC(12,2) for money     | Never FLOAT for currency                           |
+| 2026-04-02 | PostgreSQL as RDBMS         | RLS, JSONB, partial indexes, PL/pgSQL              |
+| 2026-04-02 | TypeScript full stack       | Type safety across API boundary                    |
 
 ---
 

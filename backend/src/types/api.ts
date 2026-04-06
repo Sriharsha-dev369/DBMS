@@ -32,3 +32,20 @@ export interface UpdateCustomerBody {
   status?:   'active' | 'inactive' | 'blocked';
   metadata?: Record<string, unknown>;
 }
+
+// ── Subscriptions ─────────────────────────────────────────────────
+
+export interface CreateSubscriptionBody {
+  customer_id: string;
+  plan_id:     string;
+  seat_count?: number;
+}
+
+export interface CancelSubscriptionBody {
+  immediate?: boolean;  // default false = cancel at period end
+}
+
+export interface UpgradeSubscriptionBody {
+  new_plan_id:    string;
+  new_seat_count?: number;
+}

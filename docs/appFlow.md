@@ -15,7 +15,8 @@ npm run dev
        ├─ app.use(cors(), express.json())
        ├─ app.use('/api/auth',      authRoutes)      public
        ├─ app.use('/api/plans',     planRoutes)      protected (auth + RLS)
-       ├─ app.use('/api/customers', customerRoutes)  protected (auth + RLS)
+       ├─ app.use('/api/customers',     customerRoutes)     protected (auth + RLS)
+       ├─ app.use('/api/subscriptions', subscriptionRoutes) protected (auth + RLS)
        └─ app.listen(3000)
 ```
 
@@ -448,7 +449,94 @@ db/
 
 ---
 
-## 12. What's Built vs What's Not
+## 12. Subscription Lifecycle Flow
+
+### POST /api/subscriptions — Create
+
+```
+1. Validate body: customer_id + plan_id required
+2. SELECT plans WHERE id = $1          (RLS scopes to tenant)
+   → 404 if not found
+   → 400 if is_active = false
+3. If billing_model = 'per_seat': seat_count required > 0
+4. SELECT customers WHERE id = $1
+   → 404 if not found
+   → 400 if status != 'active'
+5. Compute dates:
+   trial_days > 0 → status='trialing', period = [now, now+trial_days], trial_end = now+trial_days
+   trial_days = 0 → status='active',   period = [now, now+30|365 days], trial_end = null
+6. INSERT subscriptions RETURNING ...
+   → 409 if idx_one_active_sub_per_customer fires (customer already has active sub)
+7. Response: 201 { subscription }
+```
+
+### POST /api/subscriptions/:id/cancel
+
+```
+{ immediate?: boolean }  (default false)
+
+1. SELECT subscription WHERE id = $1
+2. validateTransition(current_status, 'cancelled') → 409 if invalid
+3. immediate=false AND status='active':
+   UPDATE SET cancel_at_period_end=true, cancelled_at=NOW()
+   (status stays 'active' — access continues until period_end)
+4. immediate=true OR status != 'active':
+   UPDATE SET status='cancelled', cancelled_at=NOW(), cancel_at_period_end=false
+5. Response: 200 { subscription }
+```
+
+### POST /api/subscriptions/:id/pause | /resume
+
+```
+pause:  validateTransition(status, 'paused') → 409 if not from 'active'
+        UPDATE SET status='paused'
+
+resume: validateTransition(status, 'active') → 409 if not from 'paused'
+        UPDATE SET status='active'
+
+Response: 200 { subscription }
+```
+
+### POST /api/subscriptions/:id/upgrade — Transaction
+
+```
+{ new_plan_id, new_seat_count? }
+
+BEGIN
+  SELECT s.*, p.base_price, p.billing_model
+  FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+  WHERE s.id = $1
+  FOR UPDATE OF s                          ← pessimistic lock on subscription row
+
+  → 404 if not found
+  → 409 if status != 'active'
+  → 400 if same plan
+
+  SELECT new plan details
+  → 404 if not found | 400 if inactive
+  → 400 if per_seat and no new_seat_count
+
+  SELECT calculate_proration(old_base_price, period_start, period_end, NOW())
+  → NOW() is stable within transaction
+
+  UPDATE subscriptions SET plan_id, seat_count, period_start=NOW(), period_end=computed
+COMMIT
+
+Response: 200 { subscription, proration_credit }
+```
+
+### State Machine Enforcement
+
+| Layer | What it enforces |
+|---|---|
+| DB CHECK | Valid status values, period_order, cancelled_at_set, trial_end_after_start |
+| Partial UNIQUE index | One non-terminal sub per (tenant_id, customer_id) |
+| Service layer | Legal transitions (validateTransition) |
+| Route layer | Business rules (active customer, active plan, seat_count for per_seat) |
+
+---
+
+## 13. What's Built vs What's Not
 
 | Area | Status | Notes |
 |---|---|---|
@@ -457,10 +545,10 @@ db/
 | Tenant context + RLS | ✓ Done | Pool client per request, session SET |
 | Plans CRUD | ✓ Done | Soft delete, billing_model locked on PATCH |
 | Customers CRUD | ✓ Done | Pagination, soft delete, duplicate email 409 |
-| Subscriptions | Phase 2 | State machine, partial unique index, proration fn |
+| Subscriptions | ✓ Done | State machine, partial unique index, proration fn, SELECT FOR UPDATE |
 | Invoices + billing job | Phase 3 | SERIALIZABLE tx, idempotency key, cron |
 | Payments | Phase 3 | AFTER trigger → invoice status update |
 | Audit log | Phase 3 | AFTER trigger on subscriptions/invoices/payments |
 | Reports (MRR, churn) | Phase 4 | Materialized views, window functions |
 | Frontend dashboard | Phase 5 | React + React Query + Tailwind |
-| Seed user passwords | Bug | Placeholder hashes — run bcrypt update before testing seed logins |
+| Seed user passwords | ✓ Fixed | Real bcryptjs hashes for "password123" in 001_seed.sql |

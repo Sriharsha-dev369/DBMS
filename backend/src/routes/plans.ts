@@ -34,6 +34,26 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+// GET /api/plans/:id
+router.get('/:id', async (req: Request, res: Response): Promise<void> => {
+  const { dbClient } = req as AuthRequest;
+  try {
+    const result = await dbClient.query(
+      `SELECT id, name, billing_model, base_price, per_seat_price,
+              billing_period, trial_days, is_active, created_at, updated_at
+       FROM   plans WHERE id = $1`,
+      [req.params.id],
+    );
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: 'Plan not found' });
+      return;
+    }
+    res.json({ plan: result.rows[0] });
+  } catch {
+    res.status(500).json({ error: 'Failed to fetch plan' });
+  }
+});
+
 // POST /api/plans
 // Creates a new plan for the authenticated tenant.
 router.post('/', async (req: Request, res: Response): Promise<void> => {

@@ -1,7 +1,7 @@
 # Technical Documentation — Multi-Tenant SaaS Subscription Billing Engine
 
 > **Living Document** — Updated as schema evolves. Always reflects current state.
-> Last updated: 2026-04-02 | Phase: Pre-implementation (Planning)
+> Last updated: 2026-04-06 | Phase: Phase 2 Complete
 
 ---
 
@@ -305,7 +305,30 @@ CREATE POLICY audit_log_tenant_isolation ON audit_log
            OR current_setting('app.current_tenant_id', true) IS NULL);
 ```
 
-### 5.3 Planned Indexes (Draft)
+### 5.3 PL/pgSQL Functions
+
+#### `calculate_proration(p_plan_price, p_period_start, p_period_end, p_change_date)`
+
+Returns the prorated credit (NUMERIC(12,2)) when a customer changes plans mid-cycle.
+
+```
+credit = plan_price × (seconds_remaining / total_seconds_in_period)
+```
+
+- Installed by migration 008; reference copy at `db/functions/calculate_proration.sql`
+- Called within the upgrade transaction so `NOW()` is stable (same timestamp as the UPDATE)
+- Guards: change_date outside period → RAISE EXCEPTION; period_end ≤ period_start → RAISE EXCEPTION
+- Edge cases: change_date = period_start → full credit; change_date = period_end → 0.00
+
+```sql
+-- Example: upgrade halfway through a $49/month Pro plan
+SELECT calculate_proration(49.00,
+  '2026-04-01'::TIMESTAMPTZ,
+  '2026-05-01'::TIMESTAMPTZ,
+  '2026-04-16'::TIMESTAMPTZ);  -- → 24.50
+```
+
+### 5.4 Planned Indexes (Draft)
 
 ```sql
 -- Tenant isolation (most critical — every query filters by tenant_id)
@@ -382,13 +405,14 @@ CREATE INDEX idx_audit_log_tenant_time  ON audit_log(tenant_id, changed_at DESC)
 - `PATCH  /api/customers/:id` — update ✓
 - `DELETE /api/customers/:id` — soft delete (status=inactive) ✓
 
-### Subscriptions
-- `POST /api/subscriptions` — create (assigns plan to customer)
-- `GET  /api/subscriptions/:id` — detail
-- `POST /api/subscriptions/:id/upgrade` — plan change
-- `POST /api/subscriptions/:id/cancel` — cancel (immediate or at period end)
-- `POST /api/subscriptions/:id/pause` — pause
-- `POST /api/subscriptions/:id/resume` — resume
+### Subscriptions ✓
+- `GET  /api/subscriptions` — list paginated (query: `?status&customer_id&limit&offset`) ✓
+- `GET  /api/subscriptions/:id` — detail ✓
+- `POST /api/subscriptions` — create (trial logic, per_seat validation) ✓
+- `POST /api/subscriptions/:id/upgrade` — plan change + proration (SELECT FOR UPDATE transaction) ✓
+- `POST /api/subscriptions/:id/cancel` — cancel (immediate or cancel_at_period_end) ✓
+- `POST /api/subscriptions/:id/pause` — pause (active → paused only) ✓
+- `POST /api/subscriptions/:id/resume` — resume (paused → active only) ✓
 
 ### Invoices
 - `GET  /api/invoices` — list (filterable by status, date)

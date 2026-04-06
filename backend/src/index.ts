@@ -4,7 +4,8 @@ import dotenv from 'dotenv';
 import { pool } from './db';
 import authRoutes     from './routes/auth';
 import planRoutes     from './routes/plans';
-import customerRoutes from './routes/customers';
+import customerRoutes     from './routes/customers';
+import subscriptionRoutes from './routes/subscriptions';
 import { protected_ } from './middleware/protected';
 import { AuthRequest } from './types/auth';
 
@@ -21,7 +22,8 @@ app.use('/api/auth', authRoutes);
 
 // Protected routes — each router applies the protected_ middleware stack internally
 app.use('/api/plans',     planRoutes);
-app.use('/api/customers', customerRoutes);
+app.use('/api/customers',      customerRoutes);
+app.use('/api/subscriptions',  subscriptionRoutes);
 
 // Health check (public)
 app.get('/health', async (_req, res) => {
